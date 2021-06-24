@@ -1,0 +1,67 @@
+stages:
+    - build
+    - test
+
+services:
+        - docker:dind
+        
+build:
+    image: docker:latest
+    stage: build
+    cache:
+        paths:
+            - zou_version
+    before_script:
+        - apk add curl jq
+        - |
+            if [ ! $ZOU_VERSION ]; then
+                curl https://api.github.com/repos/cgwire/zou/tags > tags.json
+                export ZOU_VERSION=`cat ./tags.json | jq -r '.[0].name[1:]'`
+            else
+                export MANUAL=1
+            fi
+            echo $ZOU_VERSION > zou_version
+        - |
+            curl https://gitlab.com/api/v4/projects/13202331/registry/repositories?tags=1 > tags.json
+            export CURRENT_VERSION=`cat ./tags.json | jq -r '.[1].tags|sort_by(.name | split(".") | map(tonumber?))[-1].name'`
+        - echo ZOU VERSION is $ZOU_VERSION // LAST BUILD is $CURRENT_VERSION // Manual Build=$MANUAL
+        - |
+            if [ $CURRENT_VERSION == $ZOU_VERSION ] && [ ! $MANUAL ]; then
+                curl --request POST --header "PRIVATE-TOKEN: ${BADGE_TOKEN}" "https://gitlab.com/api/v4/projects/${CI_PROJECT_ID}/jobs/${CI_JOB_ID}/cancel"
+            fi
+        - export BASE_NAME=${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}
+        - export IMAGE_NAME=${BASE_NAME}:${ZOU_VERSION}
+        - apk add --update py-pip && pip install docker-squash
+    script:
+        - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+        - docker build --build-arg ZOU_VERSION=${ZOU_VERSION} --pull -t "${IMAGE_NAME}" .
+        - docker-squash "${IMAGE_NAME}"
+        - |
+            if [ ! $MANUAL ]; then
+                echo Update 'latest' tag
+                docker tag "${IMAGE_NAME}" "${BASE_NAME}:latest"
+                arg="image_url=https://badgen.net/badge/Zou%20Version/${ZOU_VERSION//./%2E}/blue?icon=docker"
+                url="https://gitlab.com/api/v4/projects/13202331/badges/42950"
+                curl --request PUT --header "PRIVATE-TOKEN: ${BADGE_TOKEN}" --data-urlencode $arg $url
+            fi
+        - docker image push --all-tags "${BASE_NAME}"
+    rules:  
+        - if: '$CI_COMMIT_REF_NAME == "zou" && $CI_PIPELINE_SOURCE == "web"'
+        - if: '$CI_COMMIT_REF_NAME == "zou" && $CI_PIPELINE_SOURCE == "schedules"'
+       
+            
+include:
+    - template: Container-Scanning.gitlab-ci.yml
+    
+    
+container_scanning:
+    cache:
+        paths:
+            - zou_version
+    rules:  
+        - if: '$CI_COMMIT_REF_NAME == "zou" && $CI_PIPELINE_SOURCE == "web"'
+        - if: '$CI_COMMIT_REF_NAME == "zou" && $CI_PIPELINE_SOURCE == "schedules"'
+    variables:
+        CI_APPLICATION_REPOSITORY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}
+    before_script:
+        - export CI_APPLICATION_TAG=`cat zou_version`
