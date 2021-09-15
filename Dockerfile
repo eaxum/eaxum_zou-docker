@@ -27,5 +27,3 @@ ADD https://api.github.com/repos/Aderemi-Adesada/genesys_kitsu_addon/git/refs/he
 
 RUN git clone --single-branch --depth 1 https://github.com/Aderemi-Adesada/genesys_kitsu_addon /usr/local/lib/python3.7/site-packages/zou/app/services/genesys_addon\
     && apk --purge del .build-deps
-
-# COPY genesys_addon /usr/local/lib/python3.7/site-packages/zou/app/services/genesys_addon
