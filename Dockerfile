@@ -23,9 +23,9 @@ COPY upgrade_zou.sh ./upgrade_zou.sh
 
 RUN apk add --no-cache --virtual .build-deps git
 
-COPY genesys_addon /usr/local/lib/python3.7/site-packages/zou/app/services/genesys_addon
+# COPY genesys_addon /usr/local/lib/python3.7/site-packages/zou/app/services/genesys_addon
 
-# ADD https://api.github.com/repos/Aderemi-Adesada/genesys_kitsu_addon/git/refs/heads/master /usr/local/lib/python3.7/site-packages/zou/app/services/genesys_version.json
+ADD https://api.github.com/repos/Aderemi-Adesada/genesys_kitsu_addon/git/refs/heads/master /usr/local/lib/python3.7/site-packages/zou/app/services/genesys_version.json
 
-# RUN git clone --single-branch --depth 1 https://github.com/Aderemi-Adesada/genesys_kitsu_addon /usr/local/lib/python3.7/site-packages/zou/app/services/genesys_addon\
-#     && apk --purge del .build-deps
+RUN git clone --single-branch --depth 1 https://github.com/Aderemi-Adesada/genesys_kitsu_addon /usr/local/lib/python3.7/site-packages/zou/app/services/genesys_addon\
+    && apk --purge del .build-deps
