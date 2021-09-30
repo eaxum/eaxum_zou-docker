@@ -5,4 +5,4 @@ LANG=C.UTF-8
 export LC_ALL
 export LANG
 
-zou upgrade_db
+zou upgrade-db
